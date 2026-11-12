@@ -229,6 +229,9 @@ impl Gallery {
 
     /// Plays a video in its figure, `width` pixels across.
     pub fn play(&mut self, href: &str, width: u32) -> Result<(), PlayFailed> {
+        if !crate::privacy::remote_media() || !crate::privacy::web_url(href) {
+            return Err(PlayFailed::Blocked);
+        }
         let native = match self.slots.get(href) {
             Some(Slot::Video(poster)) => poster.dimensions(),
             _ => CARD,
@@ -324,6 +327,10 @@ impl Gallery {
     /// Starts fetching a figure the first time it's asked for.
     pub fn want(&mut self, href: &str) {
         if self.kitty.is_none() || self.slots.contains_key(href) {
+            return;
+        }
+        if !crate::privacy::remote_media() || !crate::privacy::web_url(href) {
+            self.slots.insert(href.to_owned(), Slot::Failed);
             return;
         }
         self.slots.insert(href.to_owned(), Slot::Loading);
@@ -562,6 +569,13 @@ static TOKEN: LazyLock<Option<String>> = LazyLock::new(|| {
 /// minutes, so that's what is fetched. The token goes only to github.com;
 /// any other link, or one that doesn't redirect, is used as it is.
 fn signed(url: &str) -> String {
+    if !crate::privacy::remote_media() || !crate::privacy::web_url(url) {
+        return url.to_owned();
+    }
+    // Check the host before accessing TOKEN, which may invoke `gh auth token`.
+    if !url.starts_with("https://github.com/") {
+        return url.to_owned();
+    }
     let Some(token) = TOKEN
         .as_deref()
         .filter(|_| url.starts_with("https://github.com/"))
@@ -590,6 +604,9 @@ fn signed(url: &str) -> String {
 }
 
 fn download(url: &str, video: bool) -> Slot {
+    if !crate::privacy::remote_media() || !crate::privacy::web_url(url) {
+        return Slot::Failed;
+    }
     let url = &signed(url);
     if video || is_video_file(url) {
         return Slot::Video(playable(poster(url)));
@@ -626,11 +643,16 @@ fn download(url: &str, video: bool) -> Slot {
 
 /// A frame from early in the video, taken with ffmpeg when it's installed.
 fn poster(url: &str) -> Option<RgbaImage> {
+    if !crate::privacy::remote_media() || !crate::privacy::web_url(url) {
+        return None;
+    }
     ["0.5", "0"].iter().find_map(|at| {
         let output = Command::new("ffmpeg")
             .args([
                 "-v",
                 "error",
+                "-protocol_whitelist",
+                "http,https,tcp,tls,crypto",
                 "-user_agent",
                 USER_AGENT,
                 "-ss",
@@ -683,6 +705,12 @@ fn playable(frame: Option<RgbaImage>) -> RgbaImage {
 
 /// Opens a link in the browser or the system's player.
 pub fn open(url: &str) -> io::Result<()> {
+    if !crate::privacy::web_url(url) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "Only HTTP and HTTPS media links can be opened.",
+        ));
+    }
     let opener = if cfg!(target_os = "macos") {
         "open"
     } else {

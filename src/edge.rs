@@ -37,6 +37,8 @@ static CLOCK_SKEW: AtomicI64 = AtomicI64::new(0);
 
 #[derive(Debug, thiserror::Error)]
 pub enum EdgeFailed {
+    #[error("Online speech is off. Set LEAF_ONLINE_SPEECH=1 to send document text to Microsoft.")]
+    Disabled,
     #[error(
         "Couldn't reach Microsoft's speech service ({cause}). Check your connection; reading aloud picks up again with the next sentence."
     )]
@@ -329,6 +331,9 @@ fn connect(
 /// Speaks `text` in `voice`, at normal speed. A connection already open is
 /// used when there is one, which saves the half second a new one takes.
 pub fn speak(text: &str, voice: &str) -> Result<Spoken, EdgeFailed> {
+    if !crate::privacy::online_speech() {
+        return Err(EdgeFailed::Disabled);
+    }
     if let Some(mut socket) = take_warm() {
         // A warm connection the service has since dropped just costs a new one.
         if let Ok(spoken) = request(&mut socket, text, voice) {
@@ -374,6 +379,9 @@ fn keep_warm(socket: Socket) {
 /// Opens a connection in the background if none is open, so the next
 /// request (a new voice, say) starts sooner.
 pub fn warm_up() {
+    if !crate::privacy::online_speech() {
+        return;
+    }
     let fresh = WARM
         .lock()
         .is_ok_and(|warm| warm.iter().any(|(used, _)| used.elapsed() < WARM_FOR));
@@ -454,6 +462,9 @@ fn request(socket: &mut Socket, text: &str, voice: &str) -> Result<Spoken, EdgeF
 
 /// Every voice the service offers.
 pub fn voices() -> Result<Vec<Voice>, EdgeFailed> {
+    if !crate::privacy::online_speech() {
+        return Err(EdgeFailed::Disabled);
+    }
     let failed = |cause: String| EdgeFailed::Voices { cause };
     let url = format!(
         "https://{BASE}/voices/list?trustedclienttoken={TRUSTED_CLIENT_TOKEN}&Sec-MS-GEC={}&Sec-MS-GEC-Version=2-{CHROMIUM_FULL_VERSION}",

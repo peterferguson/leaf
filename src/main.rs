@@ -24,6 +24,7 @@ mod place;
 mod plugin;
 mod popover;
 mod pr;
+mod privacy;
 mod prmedia;
 mod progress;
 mod prview;
@@ -33,6 +34,7 @@ mod shape;
 mod stroke;
 mod syntax;
 mod tempo;
+mod terminal;
 mod video;
 mod viewer;
 mod voicepick;
@@ -75,7 +77,14 @@ Comments: leaf comments lists every saved review comment with its diff key.
 
 Reader keys: ←/→ page, j/k scroll, ctrl+d/u half, space/b screen, g/G ends, t go to page, m bookmark, ' bookmarks, f find (n/N next/previous), i painted images, drag select + copy, @ or ctrl+enter send the selection, with the lines around it, to an agent, y highlight, 1-6 color, d pen, e eraser, v move ink, ! guide, ? keys, q quit
 
-Rex: leaf rex install puts Leaf in the command palette: open (with a picker), review diffs, ask the agent pane about a selection, read aloud and pick a voice. In a remote session, leaf is installed on the host with cargo the first time.";
+Privacy defaults: remote media, online speech, agent submission and saved selection context are off.
+  LEAF_REMOTE_MEDIA=1        fetch embedded web images and videos
+  LEAF_ONLINE_SPEECH=1       send text to Microsoft's speech service
+  LEAF_AGENT_SEND=1          submit selected text and context to an agent
+  LEAF_REMEMBER_SELECTION=1  save selection context to ask.json
+Explicit web URLs and GitHub commands still use the network. Reading progress is saved locally.
+
+Rex: leaf rex install puts Leaf in the command palette. Remote hosts need this fork installed manually.";
 
 fn is_url(target: &str) -> bool {
     let lower = target.to_ascii_lowercase();
@@ -141,8 +150,10 @@ fn resume(
             .unwrap_or_else(|_| target.to_owned())
     };
 
-    let mut options = ViewerOptions::default();
-    options.source = Some(key.clone());
+    let mut options = ViewerOptions {
+        source: Some(key.clone()),
+        ..ViewerOptions::default()
+    };
     match store.borrow().load_image_mode() {
         Ok(mode) => options.image_mode = mode.unwrap_or(options.image_mode),
         Err(e) => record(Err(e)),
@@ -300,6 +311,10 @@ fn main() -> ExitCode {
         "voice" => voice_command(rest),
         "-h" | "--help" | "help" => {
             println!("{USAGE}");
+            ExitCode::SUCCESS
+        }
+        "-V" | "--version" => {
+            println!("leaf {} (peterferguson/leaf)", env!("CARGO_PKG_VERSION"));
             ExitCode::SUCCESS
         }
         _ => {

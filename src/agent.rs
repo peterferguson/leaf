@@ -37,6 +37,10 @@ const AGENTS: &[&str] = &[
 #[derive(Debug, thiserror::Error)]
 pub enum AgentFailed {
     #[error(
+        "Agent submission is off. Set LEAF_AGENT_SEND=1 to submit selected text and context to an agent. The prompt was copied to the clipboard instead."
+    )]
+    Disabled,
+    #[error(
         "Not running inside Rex, so there is no agent pane to send to. The text was copied to the clipboard instead."
     )]
     NoTmux,
@@ -158,6 +162,9 @@ impl Agent {
 
 /// Sends `text` to the agent: a bracketed paste, then Enter outside it.
 pub fn deliver(text: &str) -> Result<Agent, AgentFailed> {
+    if !crate::privacy::agent_send() {
+        return Err(AgentFailed::Disabled);
+    }
     deliver_rex(text)
 }
 
@@ -367,6 +374,9 @@ fn context_path() -> PathBuf {
 /// Remembers the last selection and the document context around it, so a later
 /// `leaf ask` (the command palette) can send that context with the clipboard text.
 pub fn remember(selection: &str, context: &str) {
+    if !crate::privacy::remember_selection() {
+        return;
+    }
     let selection = selection.trim();
     if selection.is_empty() {
         return;
@@ -380,11 +390,23 @@ pub fn remember(selection: &str, context: &str) {
         "context": context,
     })
     .to_string();
-    let _ = std::fs::write(path, text);
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    if let Ok(mut file) = options.open(path) {
+        let _ = file.write_all(text.as_bytes());
+    }
 }
 
 /// The context saved for this exact selection, when there is one.
 pub fn recall(selection: &str) -> Option<String> {
+    if !crate::privacy::remember_selection() {
+        return None;
+    }
     let text = std::fs::read_to_string(context_path()).ok()?;
     let saved: serde_json::Value = serde_json::from_str(&text).ok()?;
     let stored = saved.get("selection")?.as_str()?;

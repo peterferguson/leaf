@@ -86,7 +86,7 @@ impl Command {
             ("voice", false) if is_voice_name(rest) => Ok(Command::Voice(rest.to_owned())),
             ("ask", _) => Ok(Command::Ask(rest.to_owned())),
             _ => Err(format!(
-                "Rex sent \"{line}\", which this leaf doesn't know; update it with cargo install leaf-reader"
+                "Rex sent \"{line}\", which this leaf doesn't know; update this fork from its checkout with cargo install --path . --locked"
             )),
         }
     }
@@ -256,7 +256,7 @@ mod tests {
         assert!(
             Command::parse("dance")
                 .unwrap_err()
-                .contains("cargo install leaf-reader")
+                .contains("cargo install --path . --locked")
         );
     }
 

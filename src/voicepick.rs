@@ -48,7 +48,7 @@ pub fn pick(current: &str) -> io::Result<Option<String>> {
     // Starts on the voice reading now.
     let mut selected = voices.iter().position(|v| v.name == current).unwrap_or(0);
     let mut terminal = ratatui::init();
-    let _ = crossterm::execute!(io::stdout(), crossterm::terminal::SetTitle("Voice"));
+    let _ = crossterm::execute!(io::stdout(), crate::terminal::set_title("Voice"));
     let result = (|| loop {
         if !complete && let Ok(listed) = receive.try_recv() {
             complete = true;

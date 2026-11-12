@@ -21,6 +21,10 @@ const CHANNELS: u16 = 2;
 
 #[derive(Debug, thiserror::Error)]
 pub enum PlayFailed {
+    #[error(
+        "Remote media is off or the URL is not HTTP(S). Set LEAF_REMOTE_MEDIA=1 to enable web media."
+    )]
+    Blocked,
     #[error("Playing videos here needs ffmpeg, which isn't installed (brew install ffmpeg)")]
     NoFfmpeg,
     #[error("ffmpeg couldn't start ({0}). The video is unchanged; click it again to retry.")]
@@ -64,15 +68,28 @@ fn ffmpeg(args: &[String]) -> Result<Child, PlayFailed> {
 }
 
 fn input(url: &str) -> Vec<String> {
-    ["-v", "error", "-re", "-user_agent", USER_AGENT, "-i", url]
-        .iter()
-        .map(|s| (*s).to_owned())
-        .collect()
+    [
+        "-v",
+        "error",
+        "-re",
+        "-protocol_whitelist",
+        "http,https,tcp,tls,crypto",
+        "-user_agent",
+        USER_AGENT,
+        "-i",
+        url,
+    ]
+    .iter()
+    .map(|s| (*s).to_owned())
+    .collect()
 }
 
 impl Playback {
     /// Starts playing `url`, decoded at `size` pixels.
     pub fn start(url: &str, size: (u32, u32)) -> Result<Self, PlayFailed> {
+        if !crate::privacy::remote_media() || !crate::privacy::web_url(url) {
+            return Err(PlayFailed::Blocked);
+        }
         let (width, height) = size;
         let mut args = input(url);
         args.extend(

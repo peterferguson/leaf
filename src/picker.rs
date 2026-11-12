@@ -226,7 +226,7 @@ pub fn pick(root: &Path, recent: Vec<(String, usize)>) -> io::Result<Option<Stri
         recent,
     };
     let mut terminal = ratatui::init();
-    let _ = crossterm::execute!(io::stdout(), crossterm::terminal::SetTitle("Open"));
+    let _ = crossterm::execute!(io::stdout(), crate::terminal::set_title("Open"));
     let result = (|| loop {
         let entries = picker.entries();
         let sections = picker.sections(&entries);

@@ -6,13 +6,13 @@ use std::rc::Rc;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
+use crate::terminal::set_title;
 use base64::Engine;
 use crossterm::event::{
     self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind,
     KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
 use crossterm::execute;
-use crossterm::terminal::SetTitle;
 use image::{DynamicImage, RgbaImage};
 use ratatui::Frame;
 use ratatui::layout::{Alignment, Rect, Size};
@@ -343,6 +343,8 @@ impl Default for ViewerOptions {
     }
 }
 
+type AskAgent = Box<dyn FnMut(&str) -> Result<Agent, AgentFailed>>;
+
 pub struct App {
     doc: Doc,
     options: ViewerOptions,
@@ -367,7 +369,7 @@ pub struct App {
     notice: Option<String>,
     /// Where a question about a selection is sent. Tests stand in for the
     /// agent pane; otherwise leaf finds one in this Rex session.
-    ask: Option<Box<dyn FnMut(&str) -> Result<Agent, AgentFailed>>>,
+    ask: Option<AskAgent>,
     /// A command from Rex's command palette, being typed in after F12.
     rex_command: Option<String>,
     bookmarks: Vec<Bookmark>,
@@ -3201,7 +3203,7 @@ pub fn run(doc: Doc, options: ViewerOptions) -> io::Result<()> {
     }));
     let mut terminal = ratatui::init();
     // The title names the terminal tab; on screen it would only take rows from the text.
-    let setup = execute!(io::stdout(), EnableMouseCapture, SetTitle(&doc.title));
+    let setup = execute!(io::stdout(), EnableMouseCapture, set_title(&doc.title));
     let picker = Picker::from_query_stdio().unwrap_or_else(|_| Picker::halfblocks());
     // Lets Rex's command palette find this reader; Rex drops it if leaf dies.
     remote::announce(remote::Kind::Document, &doc.title);

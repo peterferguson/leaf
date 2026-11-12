@@ -253,6 +253,9 @@ pub fn open(link: &str) -> Result<Doc, ArticleFailed> {
 /// Downloads a remote image for a figure. `None` when it can't be fetched or decoded;
 /// the text around it still shows.
 pub fn fetch_image(url: &str) -> Option<image::RgbaImage> {
+    if !crate::privacy::remote_media() || !crate::privacy::web_url(url) {
+        return None;
+    }
     let response = ureq::get(url)
         .header("user-agent", "Mozilla/5.0 (leaf reader)")
         .call()

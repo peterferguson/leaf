@@ -1,11 +1,56 @@
 # leaf
 
-WOW
 Read PDFs, markdown files and web articles in the terminal, and review diffs.
 
+## Local security fork
+
+This fork is based on upstream 0.11.1. It removes terminal control characters
+from document titles and updates the dependencies flagged in the security review.
+It also changes the privacy defaults described below.
+
+Install this fork from its checkout. Do not use `cargo install leaf-reader`, which
+installs the upstream package instead. Rustup uses the toolchain pinned in this repo.
+
 ```sh
-cargo install leaf-reader   # installs the `leaf` command to ~/.cargo/bin
+git clone --branch security/local-hardening https://github.com/peterferguson/leaf.git
+cd leaf
+cargo install --path . --locked   # installs leaf in ~/.cargo/bin
+leaf --version
 ```
+
+Remote images and videos are disabled by default. Online speech and agent
+submission are also disabled. Selected text and its context are not saved to
+`ask.json` unless you enable that feature. Each opt-in accepts only the value `1`:
+
+| Variable | Effect |
+| --- | --- |
+| `LEAF_REMOTE_MEDIA=1` | Fetch embedded web images and video previews. Their hosts can see your IP address. |
+| `LEAF_ONLINE_SPEECH=1` | Send text to Microsoft's speech service when you use read-aloud. |
+| `LEAF_AGENT_SEND=1` | Send selected text and surrounding context to an agent and submit the prompt. |
+| `LEAF_REMEMBER_SELECTION=1` | Save selection context to `ask.json` for later palette actions. |
+
+For example, enable remote images for one invocation with
+`LEAF_REMOTE_MEDIA=1 leaf open README.md`.
+
+These settings do not make Leaf an offline sandbox. Opening an explicit web URL
+or using GitHub commands still uses the network. Reading progress and annotations
+remain in the local database. GitHub responses are cached locally. Selecting text
+still copies it to your clipboard. If agent submission is disabled, asking an agent
+copies the prompt instead. An existing `ask.json` from another build is not read
+while selection storage is disabled, but it is not deleted.
+
+Rex requires this fork to be installed manually on each remote host. It will not
+automatically download an upstream build. Set opt-ins in the environment of the
+Leaf process, including remote processes if you use Rex.
+
+The regression checks are `cargo test --locked` and `cargo clippy --locked --all-targets`.
+After installing, run `python3 tests/terminal_smoke.py ~/.cargo/bin/leaf` to check
+terminal title handling and the remote-image opt-in in a temporary environment.
+The dependency lockfile was checked against OSV on November 12, 2026, with no
+matching advisories after the updates. This does not cover every possible defect
+in native document decoders or external helpers such as ffmpeg.
+
+## Usage
 
 On Linux, install a C toolchain, the libclang development files, the ALSA headers and fontconfig first. Debian and Ubuntu:
 
@@ -105,7 +150,7 @@ Everything goes through the GitHub CLI, so `gh` must be installed and signed in 
 
 `leaf rex install` adds Leaf to Rex's command palette. Press `cmd+shift+p` and type Leaf.
 
-Updating leaf updates the plugin too: after `cargo install leaf-reader` installs a new version, the plugin brings itself up to date the next time leaf runs. That includes when Rex loads its config, which runs leaf to ask what's open. There's no need to run `leaf rex install` again. Only the leaf the plugin was installed for does this; a development build run by hand leaves it alone.
+Updating leaf updates the plugin too: after `cargo install --path . --locked` installs this fork, the plugin brings itself up to date the next time leaf runs. That includes when Rex loads its config, which runs leaf to ask what's open. There's no need to run `leaf rex install` again. Only the leaf the plugin was installed for does this; a development build run by hand leaves it alone.
 
 Documents and diffs open in the pane the palette was called from. leaf runs in a layer laid exactly over that pane, so nothing is typed into its shell: quitting leaf leaves the shell as it was, with no command on screen or in its history. A document already open there gives way to the new one. A pane busy with something else, such as an editor or an agent, keeps it, and leaf opens beside it.
 
@@ -129,11 +174,11 @@ Rex can't hide an action per pane, so the plugin defines these only while leaf s
 
 Rex's own pickers (themes, Go to Directory) are built into the app, and this version gives a plugin no way to fill one with its own list, so leaf's pickers are drawn to match them in a floating layer.
 
-Remote sessions work too. Rex runs the actions on your Mac and sends pane and block calls to the host, so documents and diffs open on the host, from the host's files. A host without leaf builds it with `cargo install leaf-reader` the first time; it needs Rust there. Commands reach a reader by being typed into its pane (F12, then one line), so they don't depend on which machine it's on. A reader tells Rex it's there with a program-status record (`leaf/reader`). A reader on a remote host can't reload your Mac's config, so the reading actions show there only while a reader is also open on this machine; the keys inside the reader always work.
+Remote sessions work too. Rex runs the actions on your Mac and sends pane and block calls to the host, so documents and diffs open on the host, from the host's files. Install this fork on the host first with `cargo install --path . --locked` from its checkout. Commands reach a reader by being typed into its pane (F12, then one line), so they don't depend on which machine it's on. A reader tells Rex it's there with a program-status record (`leaf/reader`). A reader on a remote host can't reload your Mac's config, so the reading actions show there only while a reader is also open on this machine; the keys inside the reader always work.
 
 Rex puts the `rex` command on `PATH` only inside its own panes. leaf also looks in `REX_BIN_DIR` and in Rex's application folder, and `LEAF_REX` names the binary when neither is available. `LEAF_AGENT_PANE` names the block to send to.
 
-`leaf rex uninstall` removes the palette actions. Run `leaf rex install` again after `cargo install` updates leaf or you move the binary. (`leaf plugin install` still works.)
+`leaf rex uninstall` removes the palette actions. Run `leaf rex install` again if you move the binary. (`leaf plugin install` still works.)
 
 Built in Rust with ratatui and mupdf.
 

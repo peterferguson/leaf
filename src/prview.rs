@@ -14,13 +14,13 @@ use std::sync::LazyLock;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::{Duration, Instant};
 
+use crate::terminal::set_title;
 use base64::Engine;
 use crossterm::event::{
     self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent, KeyEventKind,
     KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
 use crossterm::execute;
-use crossterm::terminal::SetTitle;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -356,7 +356,7 @@ pub fn run(start: Start, here: Option<String>, branch: Option<String>) -> io::Re
         previous(info);
     }));
     let mut terminal = ratatui::init();
-    let setup = execute!(io::stdout(), EnableMouseCapture, SetTitle("leaf pr"));
+    let setup = execute!(io::stdout(), EnableMouseCapture, set_title("leaf pr"));
     // Asked once the terminal is raw, as the reader does.
     let gallery = Gallery::detect();
     let (tx, rx) = mpsc::channel();
@@ -633,7 +633,7 @@ impl App {
         *terminal = ratatui::init();
         terminal.clear()?;
         self.gallery.reset();
-        execute!(io::stdout(), EnableMouseCapture, SetTitle("leaf pr"))?;
+        execute!(io::stdout(), EnableMouseCapture, set_title("leaf pr"))?;
         if let Some(page) = &mut self.page {
             match &result {
                 Ok(Leave::Summary) => page.show(Tab::Summary),

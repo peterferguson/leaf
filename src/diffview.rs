@@ -10,13 +10,13 @@ use std::rc::Rc;
 use std::sync::mpsc::{self, TryRecvError};
 use std::time::{Duration, Instant};
 
+use crate::terminal::set_title;
 use base64::Engine;
 use crossterm::event::{
     self, DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
 use crossterm::execute;
-use crossterm::terminal::SetTitle;
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
@@ -655,7 +655,7 @@ impl App {
                     self.left = 0;
                     self.highlight.clear();
                     self.dialog = Dialog::None;
-                    let _ = execute!(io::stdout(), SetTitle(&self.loaded.title));
+                    let _ = execute!(io::stdout(), set_title(&self.loaded.title));
                     self.toast(format!("Loaded {}", self.loaded.label));
                 }
                 Err(e) => {
@@ -784,7 +784,7 @@ pub fn run(loaded: Loaded, options: Options) -> io::Result<Leave> {
         io::stdout(),
         EnableMouseCapture,
         EnableBracketedPaste,
-        SetTitle(&loaded.title)
+        set_title(&loaded.title)
     );
     // Lets Rex's command palette find this diff; Rex drops it if leaf dies.
     remote::announce(remote::Kind::Diff, &loaded.title);

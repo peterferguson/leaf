@@ -7,7 +7,7 @@
 --
 -- Rex runs these actions on this machine even for a session on a remote
 -- host; their pane and block calls go to the host. So a pane opened there
--- runs leaf there, installing it with cargo first when the host has none,
+-- runs leaf there, requiring this fork to be installed on the host first,
 -- and commands reach a reader by being typed into its pane: F12, one line,
 -- enter. Nothing here touches the files of the machine a document is on.
 
@@ -30,22 +30,14 @@ local DEFAULT_PATH = table.concat({
   "/bin",
 }, ":")
 
--- Runs leaf on the host, installing it with cargo when it isn't there.
+-- Runs the host's leaf. Never silently install an unreviewed upstream build.
 local BOOTSTRAP = [[
 leaf=$(command -v leaf 2>/dev/null || true)
 [ -n "$leaf" ] || leaf="$HOME/.cargo/bin/leaf"
 if [ ! -x "$leaf" ]; then
-  cargo=$(command -v cargo 2>/dev/null || echo "$HOME/.cargo/bin/cargo")
-  if [ ! -x "$cargo" ]; then
-    printf 'leaf isn'"'"'t on %s, and cargo isn'"'"'t either.\n' "$(uname -n)"
-    printf 'Install Rust from https://rustup.rs, then: cargo install leaf-reader\n'
-    printf 'Press enter to close.'; read -r _; exit 1
-  fi
-  printf 'leaf isn'"'"'t on %s yet. Installing it with cargo install leaf-reader…\n' "$(uname -n)"
-  if ! "$cargo" install leaf-reader; then
-    printf '\nleaf couldn'"'"'t be built here. The output above says why.\n'
-    printf 'Press enter to close.'; read -r _; exit 1
-  fi
+  printf 'Install the reviewed peterferguson/leaf fork on %s first.\n' "$(uname -n)"
+  printf 'From its checkout, run: cargo install --path . --locked\n'
+  printf 'Press enter to close.'; read -r _; exit 1
 fi
 exec "$leaf" "$@"
 ]]
@@ -115,7 +107,7 @@ function M.setup(opts)
 
   -- Runs leaf in the pane the palette was called from: typed at its prompt,
   -- or in place of the document it shows; beside it when it's busy. On a
-  -- remote host, a new pane beside, which can install leaf there first.
+  -- remote host, a new pane beside, using the leaf already installed there.
   local function place(ctx, label, ...)
     if ctx.server ~= nil or ctx.block_id == nil then
       open_pane(ctx, label, pane_command(ctx, ...), cwd(ctx))
@@ -128,7 +120,7 @@ function M.setup(opts)
     local _, err = rex.exec.start(argv("rex", "place", ctx.block_id, label, "--", ...),
       { env = merged, detach = true })
     if err ~= nil then
-      error("leaf: couldn't start leaf (" .. tostring(err) .. "). Install it with `cargo install leaf-reader`.", 0)
+      error("leaf: couldn't start leaf (" .. tostring(err) .. "). Install this fork with `cargo install --path . --locked`.", 0)
     end
   end
 

@@ -69,7 +69,7 @@ pub fn pick(installed: &[Installed], current: Option<&str>) -> io::Result<Option
         .and_then(|name| installed.iter().position(|a| a.name == name))
         .map_or(0, |at| at + 1);
     let mut terminal = ratatui::init();
-    let _ = crossterm::execute!(io::stdout(), crossterm::terminal::SetTitle("Agent"));
+    let _ = crossterm::execute!(io::stdout(), crate::terminal::set_title("Agent"));
     let result = (|| loop {
         let (sections, picks) = listing(installed, &typed, current);
         selected = selected.min(picks.len().saturating_sub(1));
