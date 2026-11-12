@@ -9,6 +9,7 @@ import http.server
 import os
 from pathlib import Path
 import pty
+import re
 import select
 import struct
 import subprocess
@@ -89,7 +90,9 @@ def read_document(binary, root, target, remote_media=False):
             process.wait()
         os.close(master)
     assert process.returncode == 0, (process.returncode, repr(bytes(output)[-500:]))
-    assert b"Smoke test body" in output, "document text was not rendered"
+    # Ratatui moves the cursor between words instead of printing spaces.
+    text = re.sub(rb"\x1b\[\d+;\d+H", b" ", bytes(output))
+    assert b"Smoke test body" in text, "document text was not rendered"
     assert b"\x1b]52;" not in output, "document title injected an OSC clipboard command"
     assert not (root / "data/leaf/ask.json").exists(), "selection context was saved"
 
